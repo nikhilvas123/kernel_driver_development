@@ -4,3 +4,4 @@
 */*.symvers
 */*.cmd
 */*.mod
+*/*.mod.c
