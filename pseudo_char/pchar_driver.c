@@ -76,7 +76,7 @@ ssize_t pseudo_write(struct file* file, const char __user* ubuf, size_t size, lo
     if(wcount > MAX_BUF_SIZE - wr_offset)
         wcount = MAX_BUF_SIZE - wr_offset;
     
-    ret = copy_from_user(pbuffer, ubuf, wcount);
+    ret = copy_from_user(pbuffer + wr_offset, ubuf, wcount);
     if(ret)
     {
         printk("Copy from user failed\n");
