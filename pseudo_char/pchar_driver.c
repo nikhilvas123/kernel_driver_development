@@ -3,12 +3,20 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/cdev.h>
+#include <linux/slab.h>
+#include <linux/uaccess.h>
 
 #define MINOR_BASE 0
 #define DRIVER_NAME "pseudo"
+#define MAX_BUF_SIZE 1024
 
 dev_t pdevid;
 int ndevices = 1;
+
+unsigned char *pbuffer;
+int rd_offset = 0;  /* head */
+int wr_offset = 0;  /* tail */
+int buflen = 0;
 
 struct cdev pseudo_cdev;
 struct device *pdev;
@@ -34,8 +42,28 @@ ssize_t pseudo_read(struct file* file, char __user* ubuf, size_t size, loff_t* o
 
 ssize_t pseudo_write(struct file* file, const char __user* ubuf, size_t size, loff_t *off)
 {
+    int wcount;
     printk("Pseudo Driver --write method\n");
-    return -ENOSPC;
+
+    if(wr_offset >= MAX_BUF_SIZE)
+    {
+        printk("Buffer is full\n";)
+        return -ENOSPC;
+    }
+    wcount = usize;
+    if(wcount > MAX_BUF_SIZE - wr_offset)
+        wcount = MAX_BUF_SIZE - wr_offset;
+    
+    ret = copy_from_user(pbuffer, ubuf, wcount);
+    if(ret)
+    {
+        printk("Copy from user failed\n");
+        return -EINVAL;
+    }
+    wr_offset += wcount;
+    buflen += wcount;
+    printk("Successfully written %d bytes\n", wcount);
+    return wcount;
 }
 
 struct file_operations fops = {
@@ -59,6 +87,15 @@ static int __init pseudo_init(void)
         return -EINVAL;
     }
 
+    pbuffer = kmalloc(MAX_BUF_SIZE, GFP_KERNEL);
+
+    if(pbuffer == NULL)
+    {
+        printk("Unable to allocate memory\n");
+        return -ENOMEM;
+    }
+
+
     cdev_init(&pseudo_cdev, &fops);
     kobject_set_name(&pseudo_cdev.kobj, "psample%d", i);
     cdev_add(&pseudo_cdev, pdevid, 1);
@@ -80,6 +117,7 @@ static int __init pseudo_init(void)
 
 static void __exit pseudo_exit(void)
 {
+    kfree(pbuffer);
     device_destroy(pclass, pdevid);
     cdev_del(&pseudo_cdev);
     unregister_chrdev_region(pdevid, ndevices);
