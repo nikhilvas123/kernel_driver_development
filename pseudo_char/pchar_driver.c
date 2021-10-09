@@ -35,22 +35,44 @@ int pseudo_close(struct inode* inode, struct file* file)
 }  
 
 ssize_t pseudo_read(struct file* file, char __user* ubuf, size_t size, loff_t* off)
-{
+{   
+    int ret, rcount;
+
     printk("Pseudo Driver --read method\n");
+    if(buflen == 0)
+    {
+        printk("Buffer is empty\n");
+        return 0;
+    }
+    rcount = size;
+    
+    if(rcount > buflen)
+        rcount = buflen;
+    
+    ret = copy_to_user(ubuf, pbuffer + rd_offset, rcount);
+    if(ret){
+        printk("Copy to user failed\n");
+        return -EINVAL;
+    }
+
+    rd_offset += rcount;
+    buflen -= rcount;
+    return rcount;
+
     return 0;
 }
 
 ssize_t pseudo_write(struct file* file, const char __user* ubuf, size_t size, loff_t *off)
 {
-    int wcount;
+    int wcount, ret;
     printk("Pseudo Driver --write method\n");
 
     if(wr_offset >= MAX_BUF_SIZE)
     {
-        printk("Buffer is full\n";)
+        printk("Buffer is full\n");
         return -ENOSPC;
     }
-    wcount = usize;
+    wcount = size;
     if(wcount > MAX_BUF_SIZE - wr_offset)
         wcount = MAX_BUF_SIZE - wr_offset;
     
