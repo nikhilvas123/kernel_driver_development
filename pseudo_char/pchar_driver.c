@@ -11,6 +11,8 @@ dev_t pdevid;
 int ndevices = 1;
 
 struct cdev pseudo_cdev;
+struct device *pdev;
+struct class *pclass;
 
 int pseudo_open(struct inode* inode, struct file* file)
 {
@@ -47,6 +49,9 @@ static int __init pseudo_init(void)
 {
     int ret;
     int i = 0;
+    
+    pclass = class_create(THIS_MODULE, DRIVER_NAME);
+
     ret = alloc_chrdev_region(&pdevid, MINOR_BASE, ndevices, DRIVER_NAME);
     
     if(ret != 0){
@@ -58,6 +63,15 @@ static int __init pseudo_init(void)
     kobject_set_name(&pseudo_cdev.kobj, "psample%d", i);
     cdev_add(&pseudo_cdev, pdevid, 1);
 
+    pdev = device_create(pclass, NULL, pdevid, NULL, "psample%d", i);
+
+    if(pdev == NULL)
+    {
+        printk("Failed to create device");
+        return -EINVAL;
+    }
+
+
     printk("Successfully registered, major = %d, minor = %d\n", MAJOR(pdevid), MINOR(pdevid));
     printk("Pseudo driver sample welcome\n");
     
@@ -66,8 +80,10 @@ static int __init pseudo_init(void)
 
 static void __exit pseudo_exit(void)
 {
+    device_destroy(pclass, pdevid);
     cdev_del(&pseudo_cdev);
     unregister_chrdev_region(pdevid, ndevices);
+    class_destroy(pclass);
     printk("Psuedo: Driver unregistered\n");
 }
 
