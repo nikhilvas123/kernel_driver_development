@@ -20,10 +20,10 @@ int rd_offset = 0;  /* head */
 int wr_offset = 0;  /* tail */
 int buflen = 0;
 
-struct kfifo myfifo;
-struct cdev pseudo_cdev;
-struct device* pdev;
-struct class* pclass;
+// struct kfifo myfifo;
+// struct cdev pseudo_cdev;
+// struct device* pdev;
+// struct class* pclass;
 
 typedef struct prev_obj
 {
@@ -52,18 +52,18 @@ ssize_t pseudo_read(struct file* file, char __user* ubuf, size_t size, loff_t* o
     int ret, rcount;
     char *tempbuf;
     printk("Pseudo Driver --read method\n");
-    if(kfifo_is_empty(&myfifo))
+    if(kfifo_is_empty(&(pobj->myfifo)))
     {
         printk("Buffer is empty\n");
         return 0;
     }
     rcount = size;
     
-    if(rcount > kfifo_len(&myfifo))
-        rcount = kfifo_len(&myfifo);
+    if(rcount > kfifo_len(&(pobj->myfifo)))
+        rcount = kfifo_len(&(pobj->myfifo));
     
     tempbuf = kmalloc(rcount, MAX_BUF_SIZE);
-    kfifo_out(&myfifo, tempbuf, rcount);
+    kfifo_out(&(pobj->myfifo), tempbuf, rcount);
 
     ret = copy_to_user(ubuf, tempbuf, rcount);
     
@@ -83,14 +83,14 @@ ssize_t pseudo_write(struct file* file, const char __user* ubuf, size_t size, lo
     char *tempbuf;
     printk("Pseudo Driver --write method\n");
 
-    if(kfifo_is_full(&myfifo))
+    if(kfifo_is_full(&(pobj->myfifo)))
     {
         printk("Buffer is full\n");
         return -ENOSPC;
     }
     wcount = size;
-    if(wcount > kfifo_avail(&myfifo))
-        wcount = kfifo_avail(&myfifo);
+    if(wcount > kfifo_avail(&(pobj->myfifo)))
+        wcount = kfifo_avail(&(pobj->myfifo));
     
     tempbuf = kmalloc(wcount, GFP_KERNEL);
 
@@ -100,7 +100,7 @@ ssize_t pseudo_write(struct file* file, const char __user* ubuf, size_t size, lo
         printk("Copy from user failed\n");
         return -EINVAL;
     }
-    kfifo_in(&myfifo, tempbuf, wcount);
+    kfifo_in(&(pobj->myfifo), tempbuf, wcount);
     kfree(tempbuf);
     printk("Successfully written %d bytes\n", wcount);
     return wcount;
@@ -172,12 +172,12 @@ static int __init pseudo_init(void)
 
 static void __exit pseudo_exit(void)
 {
-    kfifo_free(&myfifo);
+    kfifo_free(&(pobj->myfifo));
     // kfree(pbuffer);
-    device_destroy(pclass, pdevid);
-    cdev_del(&pseudo_cdev);
+    device_destroy(pobj->pclass, pdevid);
+    cdev_del(&(pobj->pseudo_cdev));
     unregister_chrdev_region(pdevid, ndevices);
-    class_destroy(pclass);
+    class_destroy(pobj->pclass);
     kfree(pobj);
     printk("Psuedo: Driver unregistered\n");
 }
