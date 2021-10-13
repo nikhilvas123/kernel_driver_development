@@ -22,8 +22,18 @@ int buflen = 0;
 
 struct kfifo myfifo;
 struct cdev pseudo_cdev;
-struct device *pdev;
-struct class *pclass;
+struct device* pdev;
+struct class* pclass;
+
+typedef struct prev_obj
+{
+    struct cdev pseudo_cdev;
+    struct kfifo myfifo;
+    struct device* pdev;
+    struct class* pclass;
+}PREV_OBJ;
+
+PREV_OBJ* pobj;
 
 int pseudo_open(struct inode* inode, struct file* file)
 {
@@ -108,9 +118,11 @@ static int __init pseudo_init(void)
     int ret;
     int i = 0;
     
-    pclass = class_create(THIS_MODULE, DRIVER_NAME);
+    pobj = kmalloc(sizeof(PREV_OBJ), GFP_KERNEL);
 
-    if(pclass == NULL)
+    pobj->pclass = class_create(THIS_MODULE, DRIVER_NAME);
+
+    if(pobj->pclass == NULL)
     {
         printk("Failed to create class");
         return -EINVAL;
@@ -130,7 +142,7 @@ static int __init pseudo_init(void)
         printk("Unable to allocate memory");
         return -ENOMEM;
     }
-    kfifo_init(&myfifo, pbuffer, MAX_BUF_SIZE);
+    kfifo_init(&(pobj->myfifo), pbuffer, MAX_BUF_SIZE);
 
     if(pbuffer == NULL)
     {
@@ -139,13 +151,13 @@ static int __init pseudo_init(void)
     }
 
 
-    cdev_init(&pseudo_cdev, &fops);
-    kobject_set_name(&pseudo_cdev.kobj, "psample%d", i);
-    cdev_add(&pseudo_cdev, pdevid, 1);
+    cdev_init(&(pobj->pseudo_cdev), &fops);
+    kobject_set_name(&(pobj->pseudo_cdev.kobj), "psample%d", i);
+    cdev_add(&(pobj->pseudo_cdev), pdevid, 1);
 
-    pdev = device_create(pclass, NULL, pdevid, NULL, "psample%d", i);
+    pobj->pdev = device_create(pobj->pclass, NULL, pdevid, NULL, "psample%d", i);
 
-    if(pdev == NULL)
+    if(pobj->pdev == NULL)
     {
         printk("Failed to create device");
         return -EINVAL;
@@ -166,6 +178,7 @@ static void __exit pseudo_exit(void)
     cdev_del(&pseudo_cdev);
     unregister_chrdev_region(pdevid, ndevices);
     class_destroy(pclass);
+    kfree(pobj);
     printk("Psuedo: Driver unregistered\n");
 }
 
